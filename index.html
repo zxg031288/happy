@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>生日快乐！</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .birthday-text {
+            color: #fff;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            margin-bottom: 20px;
+            padding: 0 20px;
+        }
+
+        .birthday-text h1 {
+            font-size: 2em;
+            margin: 0;
+            padding: 0;
+        }
+
+        .birthday-text p {
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .birthday-text h1 {
+                font-size: 1.8em;
+            }
+            .birthday-text p {
+                font-size: 1em;
+            }
+        }
+
+        .music-control {
+            display: none;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            touch-action: none;
+        }
+
+        #touchArea {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="birthday-text">
+        <h1>🎉 生日快乐！🎉</h1>
+        <p>愿你的生日充满欢乐与祝福</p>
+    </div>
+
+    <div id="touchArea"></div>
+    <canvas id="canvas"></canvas>
+    <audio id="bgMusic" loop>
+        <source src="生日祝福歌.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const audio = document.getElementById('bgMusic');
+        const touchArea = document.getElementById('touchArea');
+        
+        // 设置画布大小为窗口大小
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let fireworks = [];
+        let particles = [];
+
+        // 烟花类
+        class Firework {
+            constructor(x = null) {
+                this.x = x || Math.random() * canvas.width;
+                this.y = canvas.height;
+                this.targetY = Math.random() * (canvas.height * 0.6);
+                this.speed = 3;
+                this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+            }
+
+            update() {
+                this.y -= this.speed;
+                if (this.y <= this.targetY) {
+                    this.explode();
+                    return false;
+                }
+                return true;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+
+            explode() {
+                for (let i = 0; i < 50; i++) {
+                    particles.push(new Particle(this.x, this.y, this.color));
+                }
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.velocity = {
+                    x: (Math.random() - 0.5) * 8,
+                    y: (Math.random() - 0.5) * 8
+                };
+                this.alpha = 1;
+                this.friction = 0.98;
+            }
+
+            update() {
+                this.velocity.x *= this.friction;
+                this.velocity.y *= this.friction;
+                this.x += this.velocity.x;
+                this.y += this.velocity.y;
+                this.alpha -= 0.01;
+                return this.alpha > 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 1, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function addFirework(x = null) {
+            fireworks.push(new Firework(x));
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            fireworks = fireworks.filter(firework => firework.update());
+            particles = particles.filter(particle => particle.update());
+
+            fireworks.forEach(firework => firework.draw());
+            particles.forEach(particle => particle.draw());
+        }
+
+        // 处理触摸事件
+        touchArea.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            addFirework(touch.clientX);
+            tryPlayMusic();
+        });
+
+        // 处理点击事件
+        touchArea.addEventListener('click', (e) => {
+            addFirework(e.clientX);
+            tryPlayMusic();
+        });
+
+        // 尝试播放音乐
+        function tryPlayMusic() {
+            if (audio.paused) {
+                audio.play().catch(() => {
+                    console.log('自动播放被阻止');
+                });
+            }
+        }
+
+        // 页面加载完成后自动开始
+        window.addEventListener('load', () => {
+            animate();
+            // 自动添加初始烟花
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => addFirework(), i * 1000);
+            }
+            // 尝试自动播放音乐
+            tryPlayMusic();
+        });
+
+        // 确保在页面可见时尝试播放音乐
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                tryPlayMusic();
+            }
+        });
+
+        // 监听用户交互以尝试播放音乐
+        const userInteractionEvents = ['click', 'touchstart', 'keydown'];
+        userInteractionEvents.forEach(event => {
+            document.addEventListener(event, () => {
+                tryPlayMusic();
+            }, { once: true });
+        });
+    </script>
+</body>
+</html> 
